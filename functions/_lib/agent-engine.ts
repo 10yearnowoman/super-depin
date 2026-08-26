@@ -31,7 +31,7 @@ function mockCareer(form: Form) {
 
 export async function generateAgent(mode: AgentMode, form: Form, action: AgentAction, snapshot: unknown, env: Env, knowledgeText: string): Promise<{ result: Record<string, unknown>; demoMode: boolean }> {
   if (action !== 'reanalyze' && snapshot && typeof snapshot === 'object') return { result: refine(snapshot as Record<string, unknown>, action, mode), demoMode: true }
-  const model = env.DEEPSEEK_MODEL || 'deepseek-chat'
+  const model = env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
   if (!env.DEEPSEEK_API_KEY) {
     const raw = mode === 'career_script' ? mockCareer(form) : mode === 'product_consultation' ? mockProduct(form) : mockStudent(form)
     return { result: normalizeResult(raw, mode), demoMode: true }

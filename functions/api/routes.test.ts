@@ -23,6 +23,16 @@ describe('Cloudflare Pages API routes', () => {
     expect(payload).not.toHaveProperty('DEEPSEEK_API_KEY')
   })
 
+  it('uses the new default model and keeps the environment override', async () => {
+    const defaultResponse = await health(context(new Request('https://example.com/api/health'), {}))
+    const defaultPayload = await defaultResponse.json() as Record<string, unknown>
+    expect(defaultPayload.model).toBe('deepseek-v4-flash')
+
+    const overrideResponse = await health(context(new Request('https://example.com/api/health'), { DEEPSEEK_MODEL: 'custom-model' }))
+    const overridePayload = await overrideResponse.json() as Record<string, unknown>
+    expect(overridePayload.model).toBe('custom-model')
+  })
+
   it('accepts the existing frontend generate payload in demo mode', async () => {
     const response = await generate(context(new Request('https://example.com/api/generate', {
       method: 'POST',

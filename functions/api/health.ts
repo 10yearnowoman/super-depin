@@ -13,7 +13,7 @@ export const onRequest: PagesFunction = async (context) => {
     runtime: 'cloudflare-pages-functions',
     demo_mode: !Boolean(context.env.DEEPSEEK_API_KEY),
     deepseek_configured: Boolean(context.env.DEEPSEEK_API_KEY),
-    model: context.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    model: context.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
     runtime_knowledge_files: knowledge.files.length,
     resume_matcher: 'local-only-awaiting-manual-verification',
   })

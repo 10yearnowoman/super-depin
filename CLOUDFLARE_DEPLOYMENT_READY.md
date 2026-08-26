@@ -23,7 +23,7 @@ React/Vite 的 Pages 默认组合也是 `npm run build` + `dist`，见 [Cloudfla
 ## 必须配置的环境变量/Secret
 
 - `DEEPSEEK_API_KEY`：Cloudflare Pages Production 与 Preview 均配置为 Secret；只在 Functions Runtime 读取，不能写入前端代码、仓库或构建输出。
-- `DEEPSEEK_MODEL`：可选，未配置时使用 `deepseek-chat`。
+- `DEEPSEEK_MODEL`：可选，未配置时使用 `deepseek-v4-flash`；配置后可覆盖默认模型。
 - `DEEPSEEK_BASE_URL`：可选，默认为 `https://api.deepseek.com`。
 - `ALLOWED_ORIGIN`：如需限制自定义域名，可配置为完整的站点 Origin；同源部署可不配。
 - `PREVIEW_ACCESS_CODE`：如需保护 Preview 环境则配置；配置后 `/api/generate` 需要预览会话 Cookie。

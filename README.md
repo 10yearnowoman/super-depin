@@ -9,7 +9,7 @@
 3. 直接双击 `启动原型.bat`，或执行 `pnpm dev`。
 4. 浏览器打开 `http://localhost:5173`。
 
-如需本地真实模型：复制 `.env.example` 为 `.env.local`，只在服务端填写 `DEEPSEEK_API_KEY`、可选 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL`，然后重启 API。密钥不会进入前端构建产物或日志。Cloudflare Pages 上必须把 `DEEPSEEK_API_KEY` 配置为 Secret；可选配置 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL`，默认模型为 `deepseek-chat`。
+如需本地真实模型：复制 `.env.example` 为 `.env.local`，只在服务端填写 `DEEPSEEK_API_KEY`、可选 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL`，然后重启 API。密钥不会进入前端构建产物或日志。Cloudflare Pages 上必须把 `DEEPSEEK_API_KEY` 配置为 Secret；可选配置 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL`，未配置模型时默认使用 `deepseek-v4-flash`。
 
 如需使用“简历匹配方案”，另行双击 `tools/resume-matcher/start.bat`（或在该目录运行 `python app.py`），再从本工作台点击“简历匹配方案”；其页面会在 `http://127.0.0.1:5000` 打开。该模块要求上传简历并粘贴渠道老师人工匹配结果，社招候选人不会生成 Word。
 
