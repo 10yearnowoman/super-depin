@@ -4,8 +4,9 @@ import { normalizeResult, type AgentAction, type AgentMode } from './schema'
 type Form = Record<string, unknown>
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
+export const DEFAULT_BASE_URL = 'https://api.deepseek.com'
 
-export type ProviderErrorType = 'bad_request' | 'invalid_api_key' | 'insufficient_balance' | 'rate_limited' | 'service_busy' | 'upstream_error' | 'network_error' | 'timeout' | 'invalid_response'
+export type ProviderErrorType = 'bad_request' | 'invalid_api_key' | 'invalid_api_key_format' | 'invalid_base_url' | 'insufficient_balance' | 'rate_limited' | 'service_busy' | 'upstream_error' | 'network_error' | 'timeout' | 'invalid_response'
 
 export class ProviderError extends Error {
   constructor(
@@ -21,6 +22,27 @@ export class ProviderError extends Error {
 
 export function modelFor(env: Pick<Env, 'DEEPSEEK_MODEL'>): string {
   return env.DEEPSEEK_MODEL?.trim() || DEFAULT_MODEL
+}
+
+export function baseUrlFor(env: Pick<Env, 'DEEPSEEK_BASE_URL'>): string {
+  const configured = env.DEEPSEEK_BASE_URL?.trim()
+  if (!configured) return DEFAULT_BASE_URL
+  try {
+    const url = new URL(configured)
+    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.port || url.pathname !== '/' || url.search || url.hash) throw new Error('invalid')
+    return url.origin
+  } catch {
+    throw new ProviderError('DeepSeek Base URL 配置错误，请使用 https://api.deepseek.com。', 'invalid_base_url', null, 'invalid_base_url')
+  }
+}
+
+export function apiKeyFor(env: Pick<Env, 'DEEPSEEK_API_KEY'>): string | null {
+  const configured = env.DEEPSEEK_API_KEY
+  if (!configured) return null
+  if (/[\u0000-\u001F\u007F-\u009F]/.test(configured)) {
+    throw new ProviderError('DeepSeek API Key 格式错误，请在 Cloudflare Secret 中重新配置。', 'invalid_api_key_format', null, 'invalid_api_key_format')
+  }
+  return configured.trim() || null
 }
 
 function providerMessage(status: number): { message: string; errorType: ProviderErrorType } {
@@ -84,15 +106,17 @@ function mockCareer(form: Form) {
 export async function generateAgent(mode: AgentMode, form: Form, action: AgentAction, snapshot: unknown, env: Env, knowledgeText: string): Promise<{ result: Record<string, unknown>; demoMode: boolean }> {
   if (action !== 'reanalyze' && snapshot && typeof snapshot === 'object') return { result: refine(snapshot as Record<string, unknown>, action, mode), demoMode: true }
   const model = modelFor(env)
-  if (!env.DEEPSEEK_API_KEY) {
+  const apiKey = apiKeyFor(env)
+  if (!apiKey) {
     const raw = mode === 'career_script' ? mockCareer(form) : mode === 'product_consultation' ? mockProduct(form) : mockStudent(form)
     return { result: normalizeResult(raw, mode), demoMode: true }
   }
+  const baseUrl = baseUrlFor(env)
   const prompt = `你是本地求职老师工作台的结构化输出引擎。任务模式：${mode}。严格遵守以下公开知识，只输出 JSON，不输出 Markdown 代码围栏。不得编造学生经历、企业内部信息、录取概率或保证；不得在职业规划逐字稿中销售。\n${knowledgeText}`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 20_000)
   try {
-    const response = await fetch(`${(env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${env.DEEPSEEK_API_KEY}` }, body: JSON.stringify({ model, temperature: 0.2, messages: [{ role: 'system', content: prompt }, { role: 'user', content: JSON.stringify({ form, snapshot: action === 'reanalyze' ? undefined : snapshot }) }] }), signal: controller.signal })
+    const response = await fetch(`${baseUrl}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model, temperature: 0.2, stream: false, thinking: { type: 'disabled' }, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: prompt }, { role: 'user', content: JSON.stringify({ form, snapshot: action === 'reanalyze' ? undefined : snapshot }) }] }), signal: controller.signal })
     if (!response.ok) throw upstreamError(response.status, await readProviderErrorCode(response))
     let data: { choices?: Array<{ message?: { content?: unknown } }> }
     try {
@@ -103,7 +127,11 @@ export async function generateAgent(mode: AgentMode, form: Form, action: AgentAc
     const content = data.choices?.[0]?.message?.content
     if (typeof content !== 'string') throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
     const clean = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    return { result: normalizeResult(JSON.parse(clean), mode), demoMode: false }
+    try {
+      return { result: normalizeResult(JSON.parse(clean), mode), demoMode: false }
+    } catch {
+      throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
+    }
   } catch (error) {
     if (error instanceof ProviderError) throw error
     if ((error instanceof DOMException && error.name === 'AbortError') || controller.signal.aborted) {
