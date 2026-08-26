@@ -1,0 +1,31 @@
+{
+  "name": "enterprise-agent-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"node server/index.mjs\" \"vite\"",
+    "dev:api": "node server/index.mjs",
+    "dev:web": "vite",
+    "build:runtime": "node scripts/build-runtime-knowledge.mjs",
+    "build": "node scripts/build-runtime-knowledge.mjs && tsc -b && vite build",
+    "test": "node scripts/build-runtime-knowledge.mjs && vitest run",
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5",
+    "jsdom": "^24.1.1"
+  }
+}

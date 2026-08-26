@@ -1,0 +1,5 @@
+# 本地服务示例变量（不要填写真实密钥后提交）
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=
+PORT=8787

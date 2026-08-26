@@ -1,0 +1,47 @@
+{
+  "version": "2026-08-26",
+  "student_types": ["在校生", "应届生"],
+  "default_project_duration": "1—2个月",
+  "project_modes": {
+    "远程PTA": {
+      "price": 24800,
+      "duration": "1—2个月",
+      "common_benefits": ["个性化定制官邮推荐信10封", "系统岗前培训录播课程", "项目实战", "工作总结报告"],
+      "specific_benefits": ["导师可协助提供项目证明", "支持留学申请相关的合规背调"],
+      "required_completion": "学生按照导师、企业和项目要求完成实习及相关工作后获得",
+      "forbidden_benefits": ["人事备案", "正式实习证明", "正式企业人事实习"],
+      "note": "远程PTA属于线上项目/实习形式，通常没有企业人事备案及正式实习证明；不建议将该经历用于申请导师所在公司的全职岗位。"
+    },
+    "远程人事实习": {
+      "price": 24800,
+      "duration": "1—2个月",
+      "common_benefits": ["个性化定制官邮推荐信10封", "系统岗前培训录播课程", "岗位实战", "工作总结报告"],
+      "specific_benefits": ["企业人事备案", "实习证明", "按实际项目情况支持留学/求职背调", "远程线上办公"],
+      "required_completion": "学生按照导师、企业和项目要求完成实习及相关工作后获得",
+      "forbidden_benefits": []
+    },
+    "实地人事实习": {
+      "price": 26800,
+      "duration": "1—2个月",
+      "common_benefits": ["个性化定制官邮推荐信10封", "系统岗前培训录播课程", "岗位实战", "工作总结报告"],
+      "specific_benefits": ["企业人事备案", "实习证明", "按实际项目情况支持留学/求职背调", "企业现场办公"],
+      "required_completion": "学生按照导师、企业和项目要求完成实习及相关工作后获得",
+      "forbidden_benefits": []
+    }
+  },
+  "career_coaching": {
+    "price": 32800,
+    "duration": "12个月",
+    "label": "应届生求职陪跑",
+    "note": "与实习项目分开显示，不自动合计，不包含实习岗位。"
+  },
+  "icee": {
+    "enabled": true,
+    "year": 2026,
+    "start": "2026-05-30",
+    "end": "2026-08-28",
+    "overflow_to_remote": true,
+    "display_note": "2026年5月30日—8月28日；超出部分可转线上完成"
+  },
+  "no_price_label": "暂不在方案中展示价格"
+}
