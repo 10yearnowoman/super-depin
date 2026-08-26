@@ -36,6 +36,22 @@ describe('DeepSeek upstream error diagnostics', () => {
     })
   })
 
+  it('accepts the structured JSON contract returned by DeepSeek', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: JSON.stringify({
+        task_mode: 'student_reply',
+        internal_analysis: {},
+        recommended_reply: '请先补充目标和经历。',
+        facts_used: [],
+        uncertain_items: [],
+      }) } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })))
+
+    const result = await generate()
+    expect(result.demoMode).toBe(false)
+    expect(result.result.recommended_reply).toBe('请先补充目标和经历。')
+  })
+
   it.each([
     'api.deepseek.com',
     'http://api.deepseek.com',

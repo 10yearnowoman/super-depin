@@ -77,6 +77,26 @@ function upstreamError(status: number, providerErrorCode: string): ProviderError
   return new ProviderError(mapped.message, mapped.errorType, status, providerErrorCode)
 }
 
+function invalidResponse(code: string, message = 'DeepSeek 返回格式异常，请稍后重试。'): ProviderError {
+  return new ProviderError(message, 'invalid_response', null, code)
+}
+
+function parseModelJson(content: string): unknown {
+  const clean = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  try {
+    return JSON.parse(clean)
+  } catch {
+    const start = clean.indexOf('{')
+    const end = clean.lastIndexOf('}')
+    if (start < 0 || end <= start) throw invalidResponse('invalid_json')
+    try {
+      return JSON.parse(clean.slice(start, end + 1))
+    } catch {
+      throw invalidResponse('invalid_json')
+    }
+  }
+}
+
 function refine(snapshot: Record<string, unknown>, action: AgentAction, mode: AgentMode) {
   const copy = structuredClone(snapshot)
   const reply = typeof copy.recommended_reply === 'string' ? copy.recommended_reply : ''
@@ -112,7 +132,7 @@ export async function generateAgent(mode: AgentMode, form: Form, action: AgentAc
     return { result: normalizeResult(raw, mode), demoMode: true }
   }
   const baseUrl = baseUrlFor(env)
-  const prompt = `你是本地求职老师工作台的结构化输出引擎。任务模式：${mode}。严格遵守以下公开知识，只输出 JSON，不输出 Markdown 代码围栏。不得编造学生经历、企业内部信息、录取概率或保证；不得在职业规划逐字稿中销售。\n${knowledgeText}`
+  const prompt = `你是本地求职老师工作台的结构化输出引擎。任务模式：${mode}。严格遵守以下公开知识，只输出一个 JSON 对象，不输出 Markdown 代码围栏。JSON 必须包含以下字段：{"task_mode":"${mode}","internal_analysis":{"student_type":"字符串","current_stage":"字符串","core_need":"字符串","missing_information":["字符串"],"risk_flags":["字符串"],"reply_goal":"字符串","manual_review_required":true,"manual_review_reason":"字符串","product_fit":"字符串","quote_status":"字符串","service_scope":"字符串","key_limits":["字符串"]},"recommended_reply":"字符串","facts_used":["字符串"],"uncertain_items":["字符串"]}。必须提供 internal_analysis 对象和 recommended_reply 字符串；数组没有内容时返回空数组。不得编造学生经历、企业内部信息、录取概率或保证；不得在职业规划逐字稿中销售。\n${knowledgeText}`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 20_000)
   try {
@@ -125,12 +145,12 @@ export async function generateAgent(mode: AgentMode, form: Form, action: AgentAc
       throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
     }
     const content = data.choices?.[0]?.message?.content
-    if (typeof content !== 'string') throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
-    const clean = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    if (typeof content !== 'string' || !content.trim()) throw invalidResponse('missing_content')
+    const parsed = parseModelJson(content)
     try {
-      return { result: normalizeResult(JSON.parse(clean), mode), demoMode: false }
+      return { result: normalizeResult(parsed, mode), demoMode: false }
     } catch {
-      throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
+      throw invalidResponse('schema_mismatch')
     }
   } catch (error) {
     if (error instanceof ProviderError) throw error
