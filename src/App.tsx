@@ -22,6 +22,11 @@ function App() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [resumeNotice, setResumeNotice] = useState('')
+  const [previewCode, setPreviewCode] = useState('')
+  const [previewCodeRequired, setPreviewCodeRequired] = useState(false)
+  const [previewError, setPreviewError] = useState('')
+  const [previewSubmitting, setPreviewSubmitting] = useState(false)
+  const [pendingAction, setPendingAction] = useState<RefinementAction | null>(null)
   const [copied, setCopied] = useState(false)
 
   const update = (key: keyof FormState, value: string | boolean) => setForm((old) => ({ ...old, [key]: value }))
@@ -36,13 +41,36 @@ function App() {
     if (mode === 'career_script' && !form.basicSituation.trim() && !form.resumeText.trim() && !form.goal.trim()) { setError('请至少填写学生基本情况、简历文字或目标。'); return }
     setLoading(true); setError(''); setNotice(''); setCopied(false)
     try {
-      const response = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode, form, action, snapshot: action === 'reanalyze' ? undefined : result }) })
+      const response = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify({ mode, form, action, snapshot: action === 'reanalyze' ? undefined : result }) })
       const payload = await response.json()
+      if (response.status === 401 && payload.code_required === true) {
+        setPendingAction(action)
+        setPreviewCodeRequired(true)
+        setPreviewError('')
+        return
+      }
       if (!response.ok) throw new Error(payload.error || '生成失败，请稍后重试。')
       setResult(payload as Result)
       if ((payload as Result).demo_mode) setNotice('当前为演示模式，未调用真实模型。')
     } catch (err) { setError(err instanceof Error ? err.message : '生成失败，请稍后重试。') }
     finally { setLoading(false) }
+  }
+
+  async function unlockPreview() {
+    if (!previewCode.trim()) { setPreviewError('请输入预览访问码。'); return }
+    setPreviewSubmitting(true); setPreviewError(''); setError('')
+    try {
+      const response = await fetch('/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify({ access_code: previewCode }) })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || '访问码验证失败，请重试。')
+      const retryAction = pendingAction || 'reanalyze'
+      setPreviewCode(''); setPreviewCodeRequired(false); setPendingAction(null)
+      await generate(retryAction)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '访问码验证失败，请重试。'
+      setPreviewError(message)
+      if (message.includes('尚未配置')) setError(message)
+    } finally { setPreviewSubmitting(false) }
   }
 
   async function copyReply() {
@@ -87,6 +115,7 @@ function App() {
         </>}
         {error && <div className="alert error">{error}</div>}
         {notice && <div className="alert demo">{notice}</div>}
+        {previewCodeRequired && <div className="preview-access alert demo"><label className="field"><span>预览访问码</span><input type="password" value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} placeholder="请输入部署负责人提供的访问码" autoComplete="off" /></label>{previewError && <div className="preview-error" role="alert">{previewError}</div>}<button className="preview-submit" onClick={unlockPreview} disabled={previewSubmitting}>{previewSubmitting ? '正在验证…' : '提交访问码'}</button></div>}
         <button className="primary" onClick={() => generate()} disabled={loading}>{loading ? '正在生成…' : '生成回复'}</button>
         <div className="privacy-note">本原型默认不永久保存输入，不记录完整聊天或模型回复；请仅使用脱敏测试材料。</div>
       </section>

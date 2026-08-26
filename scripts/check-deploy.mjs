@@ -23,7 +23,7 @@ async function walk(target) {
 }
 
 const failures = []
-for (const route of ['functions/api/health.ts', 'functions/api/generate.ts']) {
+for (const route of ['functions/api/health.ts', 'functions/api/generate.ts', 'functions/api/preview.ts']) {
   try { await fs.access(path.join(root, route)) } catch { failures.push(`缺少 Cloudflare Pages Function 路由：${route}`) }
 }
 try {

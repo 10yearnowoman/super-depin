@@ -42,6 +42,10 @@ textarea::placeholder, input::placeholder { color: #b4bac9; }
 .primary:disabled, button:disabled { opacity: .55; cursor: wait; }
 .privacy-note { font-size: 11px; color: #9ba2b6; text-align: center; margin-top: 12px; }
 .alert { padding: 10px 12px; border-radius: 9px; font-size: 12px; margin: 8px 0 12px; }
+.preview-access { display: grid; gap: 9px; }
+.preview-access .field { margin: 0; }
+.preview-error { color: #a34f45; }
+.preview-submit { justify-self: start; }
 .alert.error { color: #a8404b; background: #fff0f1; border: 1px solid #f7d4d7; }
 .alert.demo, .demo-banner { color: #7a5a16; background: #fff6d9; border: 1px solid #f2dd99; }
 .demo-banner { border-radius: 10px; padding: 10px 14px; font-size: 12px; margin-bottom: 12px; }

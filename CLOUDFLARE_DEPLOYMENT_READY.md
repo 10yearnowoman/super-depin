@@ -4,7 +4,7 @@
 
 代码层面可以进入 Cloudflare 部署准备阶段；本地最终检查通过后，本项目不需要再修改 UI 布局即可连接 GitHub Private Repository。当前仍未部署；远程 `main` 已通过普通推送更新并核验。
 
-Cloudflare Pages 使用根目录 `functions/` 的文件路径生成 Pages Functions 路由；本项目的 `functions/api/health.ts` 与 `functions/api/generate.ts` 分别对应 `/api/health` 与 `/api/generate`。参考：[Pages Functions 入门](https://developers.cloudflare.com/pages/functions/get-started/) 和 [Functions 路由](https://developers.cloudflare.com/pages/functions/routing/)。
+Cloudflare Pages 使用根目录 `functions/` 的文件路径生成 Pages Functions 路由；本项目的 `functions/api/health.ts`、`functions/api/generate.ts` 与 `functions/api/preview.ts` 分别对应 `/api/health`、`/api/generate` 与 `/api/preview`。参考：[Pages Functions 入门](https://developers.cloudflare.com/pages/functions/get-started/) 和 [Functions 路由](https://developers.cloudflare.com/pages/functions/routing/)。
 
 ## Pages 配置
 
@@ -34,7 +34,7 @@ React/Vite 的 Pages 默认组合也是 `npm run build` + `dist`，见 [Cloudfla
 ## 云端会进入的范围
 
 - `dist/`：Vite 生成的静态前端资产（本地 Git 忽略，Pages 构建时生成）。
-- `functions/api/health.ts`、`functions/api/generate.ts`：实际 HTTP 路由。
+- `functions/api/health.ts`、`functions/api/generate.ts`、`functions/api/preview.ts`：实际 HTTP 路由；其中 `/api/preview` 用于建立预览访问 Cookie。
 - `functions/_lib/` 与 `functions/types.ts`：校验、访问保护、限流、HTTP 响应、DeepSeek 调用和运行时类型。
 - `functions/_generated/runtime-knowledge.ts`：由 `node scripts/build-runtime-knowledge.mjs` 在构建前从显式白名单生成的公开知识包。
 - 运行时知识包中的公开 `agent/system/`、`agent/knowledge/`、`agent/examples/` 选定文件和 `agent/knowledge/public-product-config.json`。
@@ -72,7 +72,8 @@ React/Vite 的 Pages 默认组合也是 `npm run build` + `dist`，见 [Cloudfla
 - 部署检查：`pnpm run check:deploy` 通过。
 - `dist/`：已生成 `index.html` 与前端 assets。
 - `/api/health`：`functions/api/health.ts` 存在，并已通过路由测试。
-- `/api/generate`：`functions/api/generate.ts` 存在，接受当前前端 POST 请求格式，并已通过 Demo 路由测试。
+- `/api/generate`：`functions/api/generate.ts` 存在，接受当前前端 POST 请求格式，并已通过 Demo 路由测试；缺少预览 Cookie 时返回 `401 + code_required`，前端会引导输入访问码后自动重试。
+- `/api/preview`：`functions/api/preview.ts` 存在，校验访问码并通过 `credentials: include` 建立预览会话 Cookie。
 - Functions 运行时扫描：未发现 `node:`、文件系统读取或 `process.env`。
 - 本地 Git：`main` 已跟踪 `origin/main`；远程已通过普通 `git push -u origin main` 更新，未使用 force。
 
