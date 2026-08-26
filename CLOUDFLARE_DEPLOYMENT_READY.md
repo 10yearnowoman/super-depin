@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-可以进入 Cloudflare 部署准备阶段；本地最终检查通过后，本项目不需要再修改 UI 布局即可连接 GitHub Private Repository。当前仍未部署、未配置远程仓库、未推送 GitHub。
+代码层面可以进入 Cloudflare 部署准备阶段；本地最终检查通过后，本项目不需要再修改 UI 布局即可连接 GitHub Private Repository。当前仍未部署、未推送 GitHub；`origin` 已配置，但本次运行中 GitHub HTTPS 连接被重置，远程仓库内容尚未能读取确认。
 
 Cloudflare Pages 使用根目录 `functions/` 的文件路径生成 Pages Functions 路由；本项目的 `functions/api/health.ts` 与 `functions/api/generate.ts` 分别对应 `/api/health` 与 `/api/generate`。参考：[Pages Functions 入门](https://developers.cloudflare.com/pages/functions/get-started/) 和 [Functions 路由](https://developers.cloudflare.com/pages/functions/routing/)。
 
@@ -10,7 +10,7 @@ Cloudflare Pages 使用根目录 `functions/` 的文件路径生成 Pages Functi
 
 | 项目 | 配置 |
 |---|---|
-| GitHub 仓库 | Private Repository；本地尚未添加远程地址 |
+| GitHub 仓库 | `https://github.com/10yearnowoman/super-depin.git`（Private，远程状态待网络恢复后确认） |
 | 生产分支 | `main` |
 | 根目录 | `/`（仓库根目录） |
 | 构建命令 | `npm run build` |
