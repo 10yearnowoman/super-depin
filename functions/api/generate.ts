@@ -1,6 +1,6 @@
 import type { PagesFunction } from '../types'
 import { requirePreview, rateLimit } from '../_lib/access'
-import { generateAgent } from '../_lib/agent-engine'
+import { generateAgent, modelFor, ProviderError } from '../_lib/agent-engine'
 import { json, methodNotAllowed, options, originError, readJson, requestId, safeError, sameOrigin, textField } from '../_lib/http'
 import { knowledgeFor } from '../_lib/runtime'
 import { isAction, isMode } from '../_lib/schema'
@@ -49,10 +49,12 @@ export const onRequest: PagesFunction = async (context) => {
     const snapshot = action === 'reanalyze' ? undefined : body.snapshot
     const knowledge = knowledgeFor(body.mode)
     const generated = await generateAgent(body.mode, form, action, snapshot, context.env, knowledge.text)
-    console.info(JSON.stringify({ request_id: id, mode: body.mode, ok: true, duration_ms: Date.now() - started, demo_mode: generated.demoMode }))
+    console.info(JSON.stringify({ request_id: id, provider_status: generated.demoMode ? null : 200, provider_error_code: null, model: modelFor(context.env), duration_ms: Date.now() - started }))
     return json(context.request, context.env, 200, { ...generated.result, demo_mode: generated.demoMode, request_id: id })
   } catch (error) {
-    console.error(JSON.stringify({ request_id: id, ok: false, duration_ms: Date.now() - started, error_type: error instanceof Error ? error.name : 'Error' }))
+    const providerError = error instanceof ProviderError ? error : null
+    console.error(JSON.stringify({ request_id: id, provider_status: providerError?.providerStatus ?? null, provider_error_code: providerError?.providerErrorCode ?? null, model: modelFor(context.env), duration_ms: Date.now() - started }))
+    if (providerError) return json(context.request, context.env, providerError.providerStatus && providerError.providerStatus >= 400 ? providerError.providerStatus : 502, { error: providerError.message, error_type: providerError.errorType, provider_status: providerError.providerStatus, provider_error_code: providerError.providerErrorCode, request_id: id })
     return json(context.request, context.env, 400, { error: safeError(error, '生成失败，请稍后重试。'), request_id: id })
   }
 }

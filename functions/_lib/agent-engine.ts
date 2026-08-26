@@ -3,6 +3,58 @@ import { normalizeResult, type AgentAction, type AgentMode } from './schema'
 
 type Form = Record<string, unknown>
 
+export const DEFAULT_MODEL = 'deepseek-v4-flash'
+
+export type ProviderErrorType = 'bad_request' | 'invalid_api_key' | 'insufficient_balance' | 'rate_limited' | 'service_busy' | 'upstream_error' | 'network_error' | 'timeout' | 'invalid_response'
+
+export class ProviderError extends Error {
+  constructor(
+    message: string,
+    readonly errorType: ProviderErrorType,
+    readonly providerStatus: number | null,
+    readonly providerErrorCode: string,
+  ) {
+    super(message)
+    this.name = 'ProviderError'
+  }
+}
+
+export function modelFor(env: Pick<Env, 'DEEPSEEK_MODEL'>): string {
+  return env.DEEPSEEK_MODEL?.trim() || DEFAULT_MODEL
+}
+
+function providerMessage(status: number): { message: string; errorType: ProviderErrorType } {
+  if (status === 400 || status === 422) return { message: 'DeepSeek 请求参数或格式错误，请检查输入后重试。', errorType: 'bad_request' }
+  if (status === 401) return { message: 'DeepSeek API Key 无效，请联系管理员检查 Cloudflare Secret。', errorType: 'invalid_api_key' }
+  if (status === 402) return { message: 'DeepSeek API 账户余额不足，请联系管理员处理。', errorType: 'insufficient_balance' }
+  if (status === 429) return { message: 'DeepSeek 请求过于频繁，请稍后再试。', errorType: 'rate_limited' }
+  if (status === 500 || status === 503) return { message: 'DeepSeek 服务繁忙，请稍后重试。', errorType: 'service_busy' }
+  return { message: 'DeepSeek 上游服务返回错误，请稍后重试。', errorType: 'upstream_error' }
+}
+
+function safeProviderCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const code = value.trim()
+  return /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/.test(code) ? code : null
+}
+
+async function readProviderErrorCode(response: Response): Promise<string> {
+  const fallback = `http_${response.status}`
+  try {
+    const text = await response.text()
+    if (new TextEncoder().encode(text).byteLength > 64 * 1024) return fallback
+    const payload = JSON.parse(text) as { code?: unknown; error?: { code?: unknown } }
+    return safeProviderCode(payload.error?.code) || safeProviderCode(payload.code) || fallback
+  } catch {
+    return fallback
+  }
+}
+
+function upstreamError(status: number, providerErrorCode: string): ProviderError {
+  const mapped = providerMessage(status)
+  return new ProviderError(mapped.message, mapped.errorType, status, providerErrorCode)
+}
+
 function refine(snapshot: Record<string, unknown>, action: AgentAction, mode: AgentMode) {
   const copy = structuredClone(snapshot)
   const reply = typeof copy.recommended_reply === 'string' ? copy.recommended_reply : ''
@@ -31,7 +83,7 @@ function mockCareer(form: Form) {
 
 export async function generateAgent(mode: AgentMode, form: Form, action: AgentAction, snapshot: unknown, env: Env, knowledgeText: string): Promise<{ result: Record<string, unknown>; demoMode: boolean }> {
   if (action !== 'reanalyze' && snapshot && typeof snapshot === 'object') return { result: refine(snapshot as Record<string, unknown>, action, mode), demoMode: true }
-  const model = env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
+  const model = modelFor(env)
   if (!env.DEEPSEEK_API_KEY) {
     const raw = mode === 'career_script' ? mockCareer(form) : mode === 'product_consultation' ? mockProduct(form) : mockStudent(form)
     return { result: normalizeResult(raw, mode), demoMode: true }
@@ -41,15 +93,23 @@ export async function generateAgent(mode: AgentMode, form: Form, action: AgentAc
   const timeout = setTimeout(() => controller.abort(), 20_000)
   try {
     const response = await fetch(`${(env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${env.DEEPSEEK_API_KEY}` }, body: JSON.stringify({ model, temperature: 0.2, messages: [{ role: 'system', content: prompt }, { role: 'user', content: JSON.stringify({ form, snapshot: action === 'reanalyze' ? undefined : snapshot }) }] }), signal: controller.signal })
-    if (!response.ok) throw new Error('模型服务暂时不可用，请稍后重试。')
-    const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> }
+    if (!response.ok) throw upstreamError(response.status, await readProviderErrorCode(response))
+    let data: { choices?: Array<{ message?: { content?: unknown } }> }
+    try {
+      data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> }
+    } catch {
+      throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
+    }
     const content = data.choices?.[0]?.message?.content
-    if (typeof content !== 'string') throw new Error('模型返回内容无法使用，请稍后重试。')
+    if (typeof content !== 'string') throw new ProviderError('DeepSeek 返回格式异常，请稍后重试。', 'invalid_response', null, 'invalid_response')
     const clean = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     return { result: normalizeResult(JSON.parse(clean), mode), demoMode: false }
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('模型请求超时，请稍后重试。')
-    throw error
+    if (error instanceof ProviderError) throw error
+    if ((error instanceof DOMException && error.name === 'AbortError') || controller.signal.aborted) {
+      throw new ProviderError('DeepSeek 请求超时，请稍后重试。', 'timeout', null, 'timeout')
+    }
+    throw new ProviderError('无法连接 DeepSeek 服务，请稍后重试。', 'network_error', null, 'network_error')
   } finally {
     clearTimeout(timeout)
   }

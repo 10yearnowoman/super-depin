@@ -2,6 +2,12 @@ import { useMemo, useState, type MouseEvent } from 'react'
 import type { FormState, RefinementAction, Result, TaskMode } from './types'
 import { hasForbiddenClaim, isCareerScriptClean, modeLabel } from './lib/guards'
 
+function formatApiError(payload: Record<string, unknown>, fallback: string): string {
+  const message = typeof payload.error === 'string' && payload.error ? payload.error : fallback
+  const errorType = typeof payload.error_type === 'string' && payload.error_type ? payload.error_type : ''
+  return errorType ? `${message}（${errorType}）` : message
+}
+
 const initialForm: FormState = {
   studentMessage: '', previousChat: '', background: '', teacherNotes: '', product: '尚未确定',
   firstInquiry: true, explicitPriceFollowup: false, nextStep: '', basicSituation: '', resumeText: '',
@@ -49,7 +55,7 @@ function App() {
         setPreviewError('')
         return
       }
-      if (!response.ok) throw new Error(payload.error || '生成失败，请稍后重试。')
+      if (!response.ok) throw new Error(formatApiError(payload, '生成失败，请稍后重试。'))
       setResult(payload as Result)
       if ((payload as Result).demo_mode) setNotice('当前为演示模式，未调用真实模型。')
     } catch (err) { setError(err instanceof Error ? err.message : '生成失败，请稍后重试。') }
